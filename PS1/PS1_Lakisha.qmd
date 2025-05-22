@@ -1,0 +1,276 @@
+---
+title: "PS1_Lakisha"
+author: "1093122"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+bm <- read_csv("https://ditraglia.com/data/lakisha_aer.csv")
+```
+
+## Exercise 1
+
+### a.
+
+There is significant racial inequality in the US labour market and BM try to find whether it is a result of racial bias or other characteristics that are unobservable to the researchers but observable to the employers.
+
+### b.
+
+They create a bank of fictitious resumes to help-wanted ads in Boston and Chicago newspapers and measure callback for interview for each sent resume. The resumes are randomly assigned African-American or White-sounding names. They also produce high-quality and low-quality resumes to study how responsive callbacks are to credentials for African-American names compared with White names.The resumes are also sent to a large spetrum of job quality and industries.
+
+### c.
+
+They find large racial differences in callback rates. White names receive 50 percent more callbacks for interviews. Callbacks are also more responsive to resume quality for White names than for African-American ones. Applicants with African-American names can find it difficult to overcome this difficulty by improving their observable skills and credentials. The racial gap is uniform across occupation, industry, and employer size. Hence, training program might not be enough to alleviate this racial gap and other forces might be needed.
+
+## Exercise 2
+
+### a.
+
+It has 4870 rows and 65 columns.
+
+```{r}
+bm
+```
+
+### b.
+
+"sex" column contains the sex of the individual indicated by the resume. "f" stands for female and "m" stands for male. "race" column contains the race of the individual implied by the resume. "w" stands for white and "b" stands for black. "firstname" column contains the fictitious name included in the resume.
+
+```{r}
+bm[c("sex", "race", "firstname")]
+```
+
+### c.
+
+```{r}
+# use mutate to create the column. use ifelse to generate TRUE/FALSE values depending on the condition (female/black)
+bm <- bm |>
+  mutate(female = ifelse(sex == "f", TRUE, FALSE),
+         black = ifelse(race == "b", TRUE, FALSE))
+bm
+```
+
+## Exercise 3
+
+### a.
+
+The experimenters created their bank of resumes by starting with real resumes posted on job search websites from job seekers in Boston and Chicago. They altered the resumes by replacing school and employer names with equivalent institutions from the opposite city (e.g., Boston resumes were adapted for Chicago and vice versa). They further diversified the resumes by varying fonts, layouts, and cover letter styles.
+
+### b.
+
+The resumes were classified into two groups: high-quality and low-quality. This classification was based on subjective criteria such as labor market experience, career profile, employment gaps, and listed skills. To reinforce the quality distinction, additional features were added to high-quality resumes, like summer jobs, volunteer experience, extra computer skills, certifications, foreign language skills, honors, or military experience.
+
+### c.
+
+To generate identities for the fictitious applicants, the experimenters randomly assigned racially distinctive names, using birth certificate data to ensure name authenticity. They also assigned phone numbers (with race/gender-matched voicemail recordings), randomized postal addresses from real streets in Boston and Chicago, and created neutral email addresses for some resumes. This process ensured that the only systematic differences between applicants were their perceived race and resume quality.
+
+## Exercise 4
+
+### a.
+
+The proportion of female for each race is around 77%. Hence, sex is balanced across race.
+
+```{r}
+library(dplyr)
+# group by race and calculate the proportion of female in each group
+bm |>
+  group_by(race) |>
+  summarize(female_percent = mean(female))
+```
+
+### b.
+
+Computer skill are roughly balanced with around 80% of individuals in each group with computer skills
+
+```{r}
+# group by race and calculate the proportion of individuals with computer skills
+bm |>
+  group_by(race) |> 
+  summarise(cs_percent = mean(computerskills))
+  
+```
+
+### c.
+
+The average education level is very close between the two groups and the number of previous jobs are close too. The average number of previous jobs is around 3.6.
+
+```{r}
+bm |>
+  group_by(race) |> 
+  summarise(education_avg = mean(education),
+            ofjobs_avg = mean(ofjobs))
+```
+
+### d.
+
+White individuals have slightly higher years of education on average but they also have higher standard deviation. Both groups have similar mean and variability.
+
+```{r}
+bm |> 
+  group_by(race) |> 
+  summarise(yearsexp_mean = mean(yearsexp),
+            yearsexp_sd = sd(yearsexp))
+```
+
+### e.
+
+We want to ensure that the treatment (African-American sounding names) are randomly assigned across the resumes. Hence, we want to check that the characteristics of the two groups are similar to each other on average.
+
+### f.
+
+The proportion of males with computer skills are significantly lower than that for females. The average level of education for male is higher than female. This is because the authors use nearly exclusively female names for administrative and clerical jobs to increase callback rates. These jobs typically require computer skills but lower education. Since the focus of the research is on race differentials, the gender imbalance in certain characteristics does not invalidate its conclusion as long as gender is balanced across each race group. We have shown this is the case in (a).
+
+```{r}
+bm |> 
+  group_by(sex) |> 
+  summarise(cs_avg = mean(computerskills),
+            edu_avg = mean(education))
+```
+
+## Exercise 5
+
+### a. 
+
+Calculate the average callback rate for all resumes
+
+The average callback rate for all resumes in Table 1 of the paper $$ 9.65*0.5 + 6.45*0.5 = 8.05$$ This is almost identical to the average callback rate I obtained below.
+
+```{r}
+bm |> 
+  summarise(callback_avg = mean(call)*100)
+```
+
+### b.
+
+On average, White-sounding names are 50% more likely than African-American names to get a callback. This suggests there is still significant differential treatment by race, even if the other characteristics of the two groups are controlled to be very similar.
+
+```{r}
+bm |> 
+  group_by(race) |> 
+  summarise(callback_avg = mean(call)*100)
+```
+
+### c.
+
+The results suggest that within each sex, African Americans have a lower callback rate than White. The racial gap (percentage difference) is slightly larger for males than for females. Within each race, female obtains higher callback rates, likely due to the reason mentioned in 4.f.
+
+```{r}
+bm |> 
+  group_by(race, sex) |> 
+  summarise(callback_avg = mean(call)*100)
+```
+
+## Exercise 6
+
+### a.
+
+```{r}
+callback_b <- bm |> 
+  filter(black == TRUE) |> 
+  pull(call)
+
+callback_w <- bm |> 
+  filter(black == FALSE) |> 
+  pull(call)
+```
+
+### b.
+
+Test statistics used: $$ t = \frac{(\overline{X}_1 - \overline{X}_2)}{\sqrt{\frac{S_1^2}{n_1} + \frac{S_2^2}{n_2}}}$$
+
+Assume unequal varainces, compute the degrees of freedom as follows: $$
+df = \frac{\left( \frac{s_1^2}{n_1} + \frac{s_2^2}{n_2} \right)^2}
+{\frac{\left( \frac{s_1^2}{n_1} \right)^2}{n_1 - 1} + \frac{\left( \frac{s_2^2}{n_2} \right)^2}{n_2 - 1}}$$
+
+```{r}
+# obtain sample size, mean and variance for black and white groups
+  sizeb <- length(callback_b)  
+  meanb <- mean(callback_b)  
+  varb <- var(callback_b)
+ 
+ 
+  sizew <- length(callback_w) 
+  meanw <- mean(callback_w) 
+  varw <- var(callback_w)
+  
+# construct test statistics
+  test_stats <- (meanw - meanb)/sqrt(varw/sizew + varb/sizeb)
+  test_stats
+
+# calculate the degrees of freedom
+  numerator <- (varw/sizew + varb/sizeb)^2
+  denominator <- ((varw/sizew)^2)/(sizew-1) + ((varb/sizeb)^2)/(sizeb-1)
+  df <- numerator/denominator
+  df
+```
+
+### c. 
+
+critical value for a two-sided t-test with $\alpha = 0.05$
+
+for each tail, p = 0.025
+```{r}
+qnorm(0.975)
+```
+### d.
+The result is consistent with Table 1 in which the p-value is almost zero.
+```{r}
+pnorm(test_stats, lower.tail = FALSE)
+```
+
+### e.
+
+We reject the null hypothesis of no difference in callback rates between black- and white-sounding names at 5% significance level. This suggest the difference we found is significant and differential treatment according to race is still prominent in the US labor market.
+
+
+## Exercise 7
+
+### a.
+
+Names can carry information about cultural identity and group affiliation. In 1970s, Blacks in racially isolated neighborhoods began to adopt increasingly distinctive names under the influence of Black Power movement while others move towards more assimilative names.It also contains information about socioeconomic status. The study finds that, over time, distinctively Black names became strong predictors of lower socioeconomic status.
+
+### b.
+The experiment tracks callback rates for interviews, not final hiring decisions or wage outcomes. Although fewer callbacks likely lead to fewer job offers, the study cannot directly measure disparities in actual hiring rates or earnings. This limitation restricts its scope in fully capturing labor market discrimination.
+
+The study signals race indirectly through names. Employers might miss the racial cues in names, leading to underestimation in discrimination. The finding apply specifically to people with racially distinctive names, not all African-Americans since some of them might have neutral names.
+
+The experiment focuses on newspaper ads, just one of many job search channels. It does not account for social networks, which are another key channel. If African-Americans rely more on networks or if employers using networks discriminate less, the results may not fully represent labor market dynamics.
+
+### c.
+
+Distinctive black-sounding names can be correlated with determinants of productivity not captured by a resume. They can also be correlated with lower socioeconomic status, which could cause employers to be biased against perceived socioeconomic background rather than race alone.
+
+### d.
+Taste-Based Discrimination:
+This occurs when an employer discriminates against a group due to personal prejudice or a "taste" for preferring one group over another, regardless of productivity or qualifications. This suggests they are willing to incur costs to avoid hiring from a disfavored group.
+
+Statistical Discrimination:
+This occurs when an employer uses group-based stereotypes or statistical averages to make decisions about individuals, due to incomplete information about their true productivity.
+
+
+In the BM study, they found significant callback gap between White and Black names, even for identical resumes. This is consistent with taste-based discrimination. If employers have a prejudice against Black individuals and they have negative perception about distinctive black names, they may systematically reject resumes with Black names out of personal bias, regardless of qualifications. However, the study does not directly measure employers' preferences and hence the taste-based discrimination is only inferred.
+
+The BM results are also consistent with statistical discrimination.Employers may use Black names as proxies for unobservable characteristics of the individual such as educational quality.They might also infer the socioeconomic backgrounds from names and associate Black names with lower average productivity, which leads to lower callback rates for black-sounding names. However, Fryer and Levitt's data show that Black names are not causally linked to worse life outcomes. If names were strong signals of productivity, we should expect impact on labour market outcomes, even after controlling for socioeconomic backgrounds.
+
+### e.
+In the 1960s, Black and White Americans chose relatively similar names for their children. However, during the early 1970s, there was a drastic change in naming patterns, particularly among Blacks in racially segregated neighborhoods, who began giving their children highly distinctive names.
+This shift in naming patterns is likely to be triggered by the rise of Black Power movement.
+Among Black children born after the 1970s, a child’s name became a strong indicator of socioeconomic status.
+Fryer and Levitt also found no evidence that having a distinctively Black name causally harms a person’s life outcomes after controlling for background characteristics such as family and neighborhood circumstances.
+
+### f.
+One possibility is that discrimination can be stage dependent.The discrimination observed by BM occurs primarily at the resume-screening stage, where names are the only racial cue. Fryer and Levitt suggest that once race is directly observed in interviews or hiring, the effect of names may diminish because employers can assess race directly, and other factors become more important. If discrimination primarily occurs at the callback stage, it may not significantly affect long-term outcome as suggested in Fryer and Levitt's findings.
+
+Another point is that black names may signal productivity beyond resume information. Black names may correlate with unobservable productivity factors not captured in BM’s resumes. Employers use names for statistical discrimination, assuming Black-named candidates are less productive on average due to socioeconomic status (SES) correlations. Fryer and Levitt’s controls for birth circumstances account for these factors, explaining why they find no negative name effect on outcomes.
+
+
+
+
+
+
+
+
+
+

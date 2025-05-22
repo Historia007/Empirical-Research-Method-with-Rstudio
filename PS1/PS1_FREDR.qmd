@@ -1,0 +1,206 @@
+---
+title: "PS1_FREDR"
+author: "1093122"
+format: html
+editor: visual
+---
+
+## Exercise 1: Getting familiar with the FRED API
+
+Install the fredr package and load the library; Set API key
+
+```{r, message=FALSE}
+library(tidyverse)
+library(fredr)
+library(tibble)
+my_key <- Sys.getenv("api_key")
+fredr_set_key(my_key)
+```
+
+get access to GDP quarterly data from 1947
+
+```{r}
+fredr(series_id = "GDP")
+```
+
+Modify the API call to retrieve quarterly GDP data from January 01, 2000, and save it in a tibble called gdp.
+
+```{r}
+gdp <- fredr(series_id = "GDP", 
+             observation_start = as.Date("2000-01-01"))
+```
+
+Find out what other time series fredr has
+
+```{r}
+fredr_category_children(category_id = 0)
+```
+
+Retrieve unemployment rates
+
+```{r}
+fredr_series_search_text("unemployment")
+```
+
+```{r}
+u <- fredr(series_id = "UNRATE", observation_start = as.Date("2000-01-01"))
+u
+```
+
+## Exercise 2: Plotting macroeconomic patterns
+
+### a. Plot the monthly unemployment rates stored in u using ggplot2
+
+```{r}
+u |> 
+  ggplot(aes(x = date, y = value)) +
+  geom_line() +
+  scale_x_date(
+  breaks = seq(as.Date("2000-01-01"), as.Date("2025-01-01"), by = "2 years"),
+  date_labels = "%Y"
+)+
+  xlab("Date") +
+  ylab("Percent")+
+  labs(title = "Unemployment Rate (%)", 
+       subtitle = "Frequency: Monthly; Time period: 2000-01 to 2025-04; Seasonally Adjusted", 
+       caption = "Data Source: U.S. Bureau of Labor Statistics via FRED®") +
+  theme_bw()
+```
+
+### b. Description of unemployment rates change during the business cycles.
+
+Unemployment rates increase significantly during recessions. In 2001, it increased from around 4% to 6%. In 2008, it increased from 5% to around 10%. During the Covid-19 recession in 2020, it increased sharply from 3% to around 15%.Unemployment then decreases during economic recoveries and economic booms, as shown by the downward trend after each recession.
+
+### c. GDP Plot
+
+```{r}
+gdp |> 
+  ggplot(aes(x = date, y = value)) +
+  geom_line() +
+  scale_x_date(
+  breaks = seq(as.Date("2000-01-01"), as.Date("2025-01-01"), by = "2 years"),
+  date_labels = "%Y"
+)+
+  xlab("Date") +
+  ylab("Billions of Dollars") +
+  labs(title = "Gross Domestic Product", 
+       subtitle = 
+      "Frequency: Quarterly; Time period: 2000-01 to 2025-04; Seasonally Adjusted Annual Rate", 
+       caption = "Data Source: U.S. Bureau of Economic Analysis via FRED®") +
+  theme_bw()
+
+```
+
+### d. Create quarter-over-quarter growth and annualised QoQ for plotting GDP growth
+
+```{r}
+gdp <- gdp |>
+  mutate(qoq = ((value - lag(value))/lag(value)),
+        qoq_annualised = (1 + qoq )^4 - 1, # as if the qoq growth continues for a year, what would be the resulting annual growth rate
+        qoq = qoq*100,
+        qoq_annualised = qoq_annualised*100)
+```
+
+We do not have a previous period for the first observation of this dataset (2000-01-01). Therefore, for the first period, we do not obtain a quarter-over-quarter growth and the values are missing.
+
+### e. Plot both measures of quarterly growth in the same plot
+
+```{r}
+gdp |> 
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = qoq, color = "qoq")) +
+  geom_line(aes(y = qoq_annualised, color = "qoq_annualised"))+
+  scale_x_date(
+  breaks = seq(as.Date("2000-01-01"), as.Date("2025-01-01"), by = "2 years"),
+  date_labels = "%Y"
+)+
+  xlab("Date") +
+  ylab("Percent")+
+  labs(title = "Gross Domestic Product Growth", 
+       subtitle = "Frequency: Quarterly; Time period: 2000-04 to 2025-04", 
+       caption = "Data Source: U.S. Bureau of Economic Analysis via FRED®") +
+  scale_color_manual(name = "Growth Metrics",
+                     values = c("qoq" = "#1f77b4",
+                      "qoq_annualised" = "#ff7f0e"),
+                     labels = c("qoq" = "QoQ (%)",
+                                "qoq_annualised" = "Annualised QoQ(%)"))+
+  theme_bw()
+```
+
+### f. Pull QoQ growth from FRED API directly and fix the missing values
+
+```{r}
+gdp_growth <- fredr(series_id = "GDP", units = "pch", observation_start = as.Date("2000-01-01"))
+gdp_growth
+```
+
+The quarterly growths rates match to my qoq variable.
+
+```{r}
+gdp$qoq[1] <- gdp_growth$value[1]
+gdp$qoq_annualised[1] <- ((1+gdp$qoq[1]*0.01)^4 - 1)*100
+gdp
+```
+
+## Exercise 3: Spotting recessions
+
+```{r}
+recessions <- tibble(
+  start = as.Date(c("2001-03-01", "2007-12-01", "2020-02-01")),
+  end   = as.Date(c("2001-11-30", "2009-06-30", "2020-04-30"))
+)
+```
+
+### a. Plot unemployment rates and add shading for recession periods
+
+```{r}
+uplot <-  u |> 
+  ggplot(aes(x = date, y = value)) +
+   geom_rect(
+    data = recessions,
+    aes(xmin = start, xmax = end, ymin = -Inf, ymax = Inf),
+    fill = "grey",
+    inherit.aes = FALSE) +
+  geom_line() +
+    scale_x_date(
+  breaks = seq(as.Date("2000-01-01"), 
+               as.Date("2025-01-01"), 
+               by = "5 years"),
+  date_labels = "%Y"
+)+
+  xlab("Date") +
+  ylab("Percent")+
+  theme_bw()
+uplot
+```
+
+### b. Plot QoQ GDP growth with recession shading using geom_rect()
+
+```{r}
+gdp_growth_plot <- gdp_growth |> 
+  ggplot(aes(x = date, y = value)) +
+   geom_rect(
+    data = recessions,
+    aes(xmin = start, xmax = end, ymin = -Inf, ymax = Inf), # Inf / -Inf to cover the whole column
+    fill = "grey", # use grey color
+    inherit.aes = FALSE) +
+  geom_line() +
+  scale_x_date(
+  breaks = seq(as.Date("2000-01-01"), 
+               as.Date("2025-01-01"), by = "5 years"),
+  date_labels = "%Y"
+)+
+  xlab("Date") +
+  ylab("Percent")+
+  theme_bw()
+gdp_growth_plot
+```
+
+### c. Combine the plots next to each other
+
+```{r}
+library(patchwork)
+uplot + gdp_growth_plot+
+  plot_annotation(title = "Unemployment (Left, %) and GDP Growth (Right, %)", 
+                  caption = "Data Source: FREDR and NBER")
+```

@@ -1,0 +1,169 @@
+---
+title: "PS1_Collatz"
+author: "1093122"
+editor: visual
+---
+
+## Exercise 1 collatz_sequence function
+
+### a. Warm up
+
+When n = 3, the next number in the sequence is 10.
+
+```{r}
+n <- 3
+
+if (n %% 2 == 0) {
+  result <- n/2 # divide by 2 if it is even
+} else{
+  result <- n*3 + 1 # if it is odd
+}
+print(result)
+```
+
+### b. Store the first two integers of the sequence for 3 into seq_3
+
+```{r}
+seq_3 <- c(3)
+seq_3 <- c(seq_3, result)
+print(seq_3)
+```
+
+### c. Get seq_5 by using while()
+
+```{r}
+n <- 5
+seq_5 <- c(5)
+while (n != 1) {
+  if (n %% 2 == 0) {
+  n <- n/2
+} else{
+  n <- n*3 + 1
+}
+  seq_5 <- c(seq_5, n)
+}
+
+print(seq_5)
+```
+
+### d. function collatz_sequence
+
+```{r}
+# modify c and turn it into a function
+collatz_sequence <- function(n){
+  seq <- c(n)
+while (n != 1) {
+  if (n %% 2 == 0) {
+  n <- n/2
+} else{
+  n <- n*3 + 1
+}
+  seq <- c(seq, n)
+} 
+
+return(seq) 
+}
+
+print(collatz_sequence(5))
+```
+
+## Exercise 2 collatz_holds function to check if Collatz conjecture holds
+
+### a. use for loop to iteratre over all integers between 3 and 10
+
+```{r}
+a <- 3
+b <- 10
+# call collatz_sequence function for every number in a:b and print it
+for (i in a:b) {
+ print(collatz_sequence(i))
+} 
+```
+
+### b. write a function that can do the same for arbitrary a and b
+
+```{r}
+collatz_holds <- function(a, b){
+  for (i in a:b) {
+ print(collatz_sequence(i))
+}
+}
+collatz_holds(3, 10)
+```
+
+### c. Modify the function so it only prints out the last element of each sequence by using tail()
+
+```{r}
+collatz_holds <- function(a, b){
+  for (i in a:b) {
+ print(tail(collatz_sequence(i), 1))
+}
+}
+collatz_holds(3, 10)
+```
+
+### d. Modify the function: use if-else statement to check whether this element equals one and store the appropriate TRUE/FALSE value in a vector
+
+```{r}
+collatz_holds <- function(a, b){
+  v <-  c()
+  for (i in a:b) {
+if (tail(collatz_sequence(i), 1) == 1){
+  v <- c(v, TRUE)
+} else{
+  v <- c(v, FALSE)
+}
+  }
+  return(v)
+}
+
+print(collatz_holds(3, 10))
+```
+
+## Exercise 3: write a function called longest_collatz that returns two numbers for any starting integer over \[a,b\]: the longest Collatz sequence, and the length of that sequence
+
+```{r}
+collatz_holds <- function(a, b){
+  v <-  c()
+  for (i in a:b) {
+    l <- length(collatz_sequence(i))
+    v[i-a+1] <- l
+    names(v)[i-a+1] <- i
+  }
+  max_integer <- names(v)[which.max(v)]
+  max_length <- max(v)
+  return(c(max_integer, max_length))
+}
+collatz_holds(6, 100)
+```
+
+## Exercise 4: write a function get_collatz_steps() that takes one argument n_max and returns a tibble with two columns: n and steps.
+
+```{r}
+library(tibble)
+get_collatz_steps <- function(n_max){
+  my_tibble <- tibble(
+    n = numeric(n_max),
+    steps = numeric(n_max)
+  )
+  for (i in 1:n_max){
+   my_tibble$n[i] <- i
+   my_tibble$steps[i] <- length(collatz_sequence(i))
+  }
+   return(my_tibble)
+}
+print(get_collatz_steps(500))
+```
+
+use ggplot2 to create a scatterplot with n on the x-axis and steps on the y-axis
+
+```{r}
+library(tidyverse)
+data <- get_collatz_steps(500)
+
+data |> 
+  ggplot(mapping = aes(x = n, y = steps)) +
+  geom_point() +
+  theme_bw()
+
+```
