@@ -1,0 +1,297 @@
+---
+title: "PS2_Monte_Carlo"
+author: "1093122"
+format: html
+editor: visual
+---
+
+## Exercise 1
+
+### a.
+
+Lehmer random number generator produces $\{x_n\}$ using the following: $$x_{n+1} = ax_n \ mod \ m $$
+
+$\{\frac{x_{n}}{m}\}$ gives the sequence of iid Uniform (0,1) draws.
+
+```{r}
+# Define m and a
+m <- 2^16 + 1
+a <- 75
+
+# Seed
+x0 <- 42
+
+# x %% y is the remainder when x is divided by y
+x1 <- (a * x0) %% m
+
+# next element of the sequence
+print(x1)
+```
+
+### b.
+
+Divide the Lehmer sequence by m to transform it to be within the interval \[0,1\]. To convert it into a \[3, 5\] interval, divide the Lehmer sequence by m, multiplied it by two and add three. $$\{2 \times \frac{x_n}{m} + 3\}$$
+
+```{r}
+Lehmer_seq <- c(42, 3150, 39639, 23760, 12501, 20057)
+
+# convert into [0,1] interval
+print(Lehmer_seq/m)
+
+# convert into [3,5] interval
+print(2*Lehmer_seq/m + 3)
+```
+
+### c.
+
+```{r}
+runif_zx81 <- function(seed, n, min = 0, max = 1){
+  # Set the a and m parameters as specified.
+  m <- 2^16 + 1
+  a <- 75
+  # Add warning messages in case the seed input is negative or larger than m.
+  if (seed < 0) {
+    "The seed is negative!"
+  } 
+  if (seed > m) {
+    "The seed is bigger than m!"
+  } 
+  # Initialize an empty vector to save the draws, and save the start of the 
+  # sequence as the first draw. Hint: how do you access elements of vectors?
+  seq <- c()
+  seq[1] <- seed
+  # Run a for loop to construct as many elements of the sequence as specified by
+  # the number of draws n.
+  for (i in 2:n){
+    x <- (a * seq[i-1]) %% m
+    seq[i] <- x
+  }
+  # Adjust the interval of your vector to run from min to max.
+  seq <- (max - min)*(seq/m) + min
+  # Return the vector of pseudorandom numbers.
+  seq
+}
+```
+
+### d.
+
+```{r}
+# seed = 42 and n = 1000
+data <- runif_zx81(66, 1000)
+```
+
+The count of data points in each bin is around 10 using a bin size = 100, which suggests the data points are uniformly distributed between 0 and 1.
+
+```{r}
+# histogram
+library(tidyverse)
+data <- tibble(data)
+data |> 
+  ggplot(aes(x = data)) + 
+  geom_histogram(
+    binwidth = 0.01
+  ) +
+  theme_bw()
+```
+
+The QQ plot lies quite closely to the 45-degree line. This means the sample quantile values closely match the theoretical quantile values of a uniform distribution.
+
+```{r}
+# create the QQ plot and use the uniform distribution over [0, 1] as a reference
+ggplot(data, aes(sample = data)) + 
+  stat_qq(distribution = qunif, dparams = list(min = 0, max = 1)) +
+  stat_qq_line(distribution = qunif, dparams = list(min = 0, max = 1), color = "red") +
+  theme_bw()
+```
+
+The points seem to be distributed evenly and randomly between 0 and 1. There is no trend or clustering over the index.
+
+```{r}
+# time series plot
+data |> 
+  mutate(index = row_number()) |> 
+  ggplot(aes(x = index, y = data)) + 
+  geom_point() +
+  theme_bw()
+```
+
+## Exercise 2
+
+### a.
+
+```{r}
+# Pseudocode for 2.a
+  # construct U1 and U2 with runif_zx81
+
+  # Construct the two new random variables using U1 and U2
+
+  # Construct Z1 and Z2 with the new random variables as the Box-Muller Transform suggests
+  # Z1 and Z2 are standard, normally distributed random variables
+
+  # Transform Z1 and Z2 to get V = Z*sd + mean
+
+  # Combine V1 and V2 into a new vector Z
+
+```
+
+### b.
+
+```{r}
+unif_seq <- c(0.5600805, 0.5767570, 0.8858708, 0.9313472, 0.7665961, 0.9763004)
+
+# Divide the unif_seq into two equal halves
+U1 <- unif_seq[1:3]
+U2 <- unif_seq[4:6]
+
+# Construct the two new random variables using U1 and U2
+R <- sqrt(-2*log(U1))
+theta <- 2*pi*U2
+
+# Construct Z1 and Z2 with the new random variables as the Box-Muller Transform suggests
+Z1 <- R*cos(theta)
+Z2 <- R*sin(theta)
+
+# Transform Z1 and Z2 to get V = Z*sd + mean
+V1 <- Z1*0.5 + 2
+V2 <- Z2*0.5 + 2
+
+# Combine V1 and V2 into a new vector Z
+Z <- c(V1, V2)
+Z
+```
+
+```{r}
+rnorm_zx81 <- function(seed, n, mean, sd) {
+  # construct U1 and U2 with runif_zx81
+  if (n %% 2 == 0){
+    # if n is even
+    unif_seq <- runif_zx81(seed, n)
+    U1 <- unif_seq[1:(n/2)]
+    U2 <- unif_seq[(n/2+1):n]
+  } else{
+    # if n is odd
+    unif_seq <- runif_zx81(seed, n+1)
+    U1 <- unif_seq[1:((n+1)/2)]
+    U2 <- unif_seq[((n+1)/2 + 1) : (n+1)]
+  }
+  
+  # Construct the two new random variables using U1 and U2
+  R <- sqrt(-2*log(U1))
+  theta <- 2*pi*U2
+  
+  # Construct Z1 and Z2 with the new random variables as the Box-Muller Transform suggests
+  # Z1 and Z2 are standard, normally distributed random variables
+  Z1 <- R*cos(theta)
+  Z2 <- R*sin(theta)
+  
+  # Transform Z1 and Z2 to get V = Z*sd + mean
+  V1 <- Z1*sd + mean
+  V2 <- Z2*sd + mean
+  
+  # remove one element from V1 if n is odd
+  if (n %% 2 != 0) {
+    V1 <- V1[-1]
+  }
+  
+  # Combine V1 and V2 into a new vector Z
+  Z <- c(V1, V2)
+  Z
+}
+  
+
+```
+
+### d.
+
+```{r}
+# Generate 1000 random draws from rnorm_zx81()
+data_n <- rnorm_zx81(42, 1000, 0, 1)
+```
+
+The histogram appears to be bell-shaped and symmetric, which matches the pdf of a normal distribution.
+
+```{r}
+# histogram
+data_n <- tibble(data_n)
+data_n |> 
+  ggplot(aes(x = data_n)) + 
+  geom_histogram(
+    binwidth = 0.1
+  ) +
+  theme_bw()
+```
+
+The QQ plot lies very closely to the 45-degree line. This means the sample quantile values closely match the theoretical quantile values of a standard normal distribution.
+
+```{r}
+# QQ plot with standard normal distribution as the reference theoretical distribution
+ggplot(data_n, aes(sample = data_n)) + 
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  theme_bw()
+```
+
+The time series plot shows that the data points are randomly distributed over the index without any trend or clustering. Hence, the draws appear to be independent.
+
+```{r}
+# time series plot
+data_n |> 
+  mutate(index = row_number()) |> 
+  ggplot(aes(x = index, y = data_n)) + 
+  geom_point() +
+  theme_bw()
+```
+
+## Exercise 3
+
+```{r}
+# write a new equation with the same function as runif_zx81 but sets a = 66 and m = 401
+runif_3 <- function(seed, n, min = 0, max = 1){
+  # Set the a and m parameters as specified.
+  m <- 401
+  a <- 66
+  # Add warning messages in case the seed input is negative or larger than m.
+  if (seed < 0) {
+    "The seed is negative!"
+  } 
+  if (seed > m) {
+    "The seed is bigger than m!"
+  } 
+  # Initialize an empty vector to save the draws, and save the start of the 
+  # sequence as the first draw. Hint: how do you access elements of vectors?
+  seq <- c()
+  seq[1] <- seed
+  # Run a for loop to construct as many elements of the sequence as specified by
+  # the number of draws n.
+  for (i in 2:n){
+    x <- (a * seq[i-1]) %% m
+    seq[i] <- x
+  }
+  # Adjust the interval of your vector to run from min to max.
+  seq <- (max - min)*(seq/m) + min
+  # Return the vector of pseudorandom numbers.
+  seq
+}
+```
+
+```{r}
+# set seed = 42 and generate 1000 draws
+data3 <- runif_3(42, 1000)
+```
+
+```{r}
+# extract odd and even indexed values and make a new tibble with these two variables
+odds <- data3[seq(1, length(data3), 2)]
+evens <- data3[seq(2, length(data3), 2)]
+data3 <- tibble(odds = odds, evens = evens)
+```
+
+The scatter plot shows points lying on a number of parallel downward-sloping lines. This contradicts true randomness, where points should be uniformly scattered. This corresponds to theorem 1 in Marsaglia, 1968 that the Lehmer random number generator would give points lying on a set of parallel hyperplanes and the number of hyperplanes is also bounded. The plot below is a 2D demonstration of this defect where the hyperplanes are given by the parallel lines. There are also many systems of parallel hyperplanes which contain all of the points.Therefore, pseudo-random numbers form MCGs are not truly random in higher dimensions.
+
+```{r}
+# make the 2D scatter plot
+data3 |> 
+  ggplot(aes(x = odds, y = evens)) +
+  geom_point() +
+  theme_bw()
+```

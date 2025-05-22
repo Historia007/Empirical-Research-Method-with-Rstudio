@@ -1,0 +1,148 @@
+---
+title: "PS2_Football"
+author: "1093122"
+format: html
+editor: visual
+---
+
+## Exercise 1
+
+```{r}
+library(tidyverse)
+library(dplyr)
+football <- read_csv('https://ditraglia.com/data/fair_football.csv')
+football
+```
+
+
+calculate the home field advantage
+```{r}
+# only need games where H is 1 or -1
+home <- football |>
+  filter(H == 1 | H == -1)
+
+home |> 
+  mutate(home_win = ((H == 1 & SPREAD > 0) | (H == -1 & SPREAD < 0))) |> 
+  summarise(home_win_percent = mean(home_win))
+```
+
+```{r}
+
+home <- home |> 
+  mutate(homescore_more = if_else(H == 1, SPREAD, -SPREAD)) 
+
+home |> 
+  summarise(more_points_avg = mean(homescore_more))
+
+```
+
+
+## Exercise 2
+
+The intercept is given by the difference between the averages of SPREAD and H. Given the designation of "Team A" and "Team B" is completely arbitrary, H is expected to be zero on average, the intercept is simply the average of SPREAD. Since the football game is a zero-sum game, the average of SPREAD is also expected to be zero. A non-zero intercept would imply a consistent bias in one direction, which implies the team labeling is not arbitrary. For all the other predictor variables, their values should also be equal to zero on average. The numbers obtained by reversing team A and B are symmetric with opposite signs. Hence, the intercept should be zero in any regression predicting SPREAD given completely arbitrary designation of teams.
+
+## Exercise 3
+
+Interpretation: The estimated coefficient on H represents that if team A is the home team, it earns 4.857 points more than team B on average.  
+Inference: The hypothesis test below suggests that the coefficient is significantly different from zero with $p < 0.001$.  
+Model fit: both multiple R-squared and adjusted R-squared are close to zero, which suggests a relatively poor fit.  
+
+```{r}
+# Regress SPREAD on H without intercept
+reg1 <- lm(SPREAD ~ H-1, football)
+summary(reg1)
+```
+
+**Hypothesis testing with $H_0: \beta_1 = 0$**
+
+We reject the null hypothesis.
+```{r, message=FALSE}
+library(car)
+linearHypothesis(reg1, "H = 0")
+```
+
+## Exercise 4
+
+The lower triangle: it is the scatterplot between variable pairs.  
+The upper triangle: it gives the correlation coefficients.  
+Diagonal: Univariate distribution - it gives the histograms of each individual variable.  
+
+Interpretation: all the variables are positively correlated with each other. This positive relationship is strong as the correlation coefficients are close to 1. The histogram shows the distribution of each variable tends to be symmetric around zero, which corresponds to the random labeling of teams.
+
+```{r, message=FALSE}
+library(GGally)
+football |> 
+  ggpairs(columns = c("MAT", "SAG","BIL", "COL", "MAS", "DUN", "REC"), 
+          title = "Pairwise Plot of Computre Ranking Systems")
+
+```
+
+## Exercise 5
+
+Statistical Inference: based on the t-test below, use a significance level $\alpha = 10\%$, variables MAT and MAS are not statistically significant. The same result is given by the F-test with $H_ 0: \beta_{MAT} = \beta_{MAS} = 0$. Hence, these two variables may not add additional predictive information.
+
+```{r}
+reg2 <- lm(SPREAD ~ . - LV - 1, football)
+summary(reg2)
+```
+
+**Hypothesis Testing with $H_ 0: \beta_{MAT} = \beta_{MAS} = 0$**
+
+We do not reject the null hypothesis.
+```{r}
+linearHypothesis(reg2, c("MAT = 0", "MAS = 0"))
+```
+
+**Re-estimate the model by removing these two variables**
+
+```{r}
+reg3 <- lm(SPREAD ~ . - LV -MAT -MAS - 1, football)
+summary(reg3)
+```
+Yes, it is possible to make better predictions as long as each computer ranking system provides statistically significant incremental predictive power. Each ranking system may contain independent information that would improve the prediction. Based on the result, SAG, DUN,COL, BIL and REC are consistently significant, which means they provide non-redundant information and would help improve predictive performance.
+
+## Exercise 6
+
+Neither H nor any of the ranking systems is statistically significant after including LV in the regression. Hence, they do not carry independent information beyond that contained in LV. LV is the only statistically significant variable in the regression.
+
+```{r}
+reg4 <- lm(SPREAD ~ LV + H + SAG + BIL + COL + DUN + REC - 1, football)
+summary(reg4)
+```
+
+**Hypothesis testing with $H_0: \beta_H = \beta_{SAG} = \beta_{BIL} = \beta_{COL} = \beta_{DUN} = \beta_{REC} = 0$**
+
+We do not reject the null hypothesis.
+```{r}
+linearHypothesis(reg4, c("H = 0", "SAG = 0", "BIL = 0", "COL = 0", "DUN = 0", "REC = 0"))
+```
+
+## Exercise 7
+
+The market is efficient if it fully and correctly reflect all public information. Part 6 shows that the other variables do not contain any independent information that is not already captured by LV. This means the betting market has contained all the public information available. If the betting markets are efficient, the slope in a regression using LV alone should be 1 as LV should give the best prediction of SPREAD. In the regression below, it is shown that the coefficient on LV is close to 1 and is statistically significant. The R-squared values using LV alone is around 0.46. This means around 46% of the variability in actual spread can be explained by LV alone, which shows stronger accuracy compared with the previous settings without LV. The root mean squared error is essentially given by the residual standard error below: on average LV predictions are off by about 15.62 points.
+
+```{r}
+reg5 <- lm(SPREAD ~ LV-1, football)
+summary(reg5)
+```
+
+**Hypothesis testing with $H_0: \beta_{LV} = 1$**
+
+We do not reject the null hypothesis.
+```{r}
+linearHypothesis(reg5, "LV = 1")
+```
+
+
+## Exercise 8
+
+```{r}
+library(modelsummary)
+regressions <- list(reg1, reg2, reg3, reg4, reg5)
+modelsummary(regressions, gof_omit = 'Log.Lik|R2 Adj.|AIC|BIC|F', fmt = 2, 
+             notes = 'Source: Fair & Oster (2007).') 
+```
+
+
+
+

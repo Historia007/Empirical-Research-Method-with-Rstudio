@@ -1,0 +1,308 @@
+---
+title: "PS2_Wells"
+author: "1093122"
+format: html
+editor: visual
+---
+
+## Exercise 1
+
+### a.
+
+```{r}
+# load the data and store it in a tibble
+library(tidyverse)
+library(dplyr)
+wells <- read_csv("https://ditraglia.com/data/wells.csv")
+wells
+```
+
+### b.
+
+```{r}
+# create the natural logarithm of arsenic
+wells <- wells |> 
+  mutate(larsenic = log(arsenic))
+```
+
+### c.
+
+The distribution of arsenic is skewed to the right, which means the right tail of the distribution is longer than the left tail. Most of the data is clustered around the lower end and a few larger values pull the tail to the right. The distribution for larsenic have shorter tails and data clusters near the midddle. This is because the natural log transformation compresses extreme values due to its concave property and the rate of increase in larsenic would be smaller as arsenic increases. Therefore, the distribution for larsenic is more symmetric compared with arsenic.
+
+```{r}
+# Use ggplot2 to make a histogram of arsenic and larsenic
+wells |> 
+  ggplot(aes(x = arsenic)) +
+  geom_histogram(bins = 100) +
+  theme_bw() 
+
+```
+
+```{r}
+wells |> 
+  ggplot(aes(x = larsenic)) +
+  geom_histogram(bins = 100) +
+  theme_bw()
+```
+
+### c.
+
+```{r}
+# Measure the distance in hundreds of meters
+wells <- wells |> 
+  mutate(dist100 = dist /100)
+```
+
+### d.
+
+```{r}
+# zeduc: z-score of educ
+wells <- wells |> 
+  mutate(zeduc = (educ - mean(educ))/sd(educ))
+```
+
+## Exercise 2
+
+### a.
+
+```{r}
+# Run a logistic regression using dist100 to predict switch and store the result in an object called fit1.
+fit1 <- glm(switch ~ dist100, family = binomial(link = "logit"), wells)
+```
+
+### b.
+
+```{r}
+# Use ggplot2 to plot the logistic regression function from part (a) along with the data
+ggplot(wells, aes(dist100, switch)) +
+  # stat_smooth() plots the predicted probabilities of switching given dist100
+  stat_smooth(method = "glm", method.args = list(family = 'binomial')) + 
+  geom_jitter(width = 0.5,
+              height = 0.1)
+
+```
+
+### c.
+
+The test below suggests that dist100 is a statistically significant predictor of switch as p-value \< 0.001. The sign of the coefficient is negative: as the distance to closest known safe well increases, the probability of switching decreases. This makes sense since it is more difficult to reach a safe well given longer distance.
+
+```{r}
+summary(fit1)
+```
+
+### d.
+
+```{r}
+# Estimate of P(switch = 1 | dist100 = mean(dist100))
+p_average <- predict(fit1, newdata = data.frame(dist100 = mean(wells$dist100)), type = 'response')
+p_average
+```
+
+### e.
+
+For an average household in the dataset, a unit increase in hundreds meters from the closest safe well decreases the probability of switching by about 15%. Compared to the maximum marginal effect, the difference is not very large. This means the mean of dist100 is close to zero.
+
+```{r}
+marginal_effect_average <- coef(fit1)["dist100"] * p_average * (1-p_average)
+marginal_effect_average
+```
+
+```{r}
+max_effect <- coef(fit1)["dist100"]/4
+max_effect
+```
+
+## Exercise 3
+
+### a.
+
+```{r}
+wells <- wells |> 
+  mutate(p1 = predict(fit1, type = "response"))
+wells
+```
+
+### b.
+
+```{r}
+wells <- wells |> 
+  mutate(pred1 = ifelse(p1 > 1/2, 1, 0))
+wells
+```
+
+### c.
+
+```{r}
+wells <- wells |> 
+  mutate(incorrect = ifelse(switch != pred1, 1, 0))
+
+wells |> 
+  summarise(error_rate = mean(incorrect))
+```
+
+### d.
+
+```{r}
+conf_matrix <- table(Actual = wells$switch, Predicted = wells$pred1)
+conf_matrix
+```
+
+### e.
+
+```{r}
+sensitivity <- (conf_matrix[2,2])/(conf_matrix[1, 2] + conf_matrix[2, 2])
+specificity <- (conf_matrix[1,1])/(conf_matrix[1,1] + conf_matrix[2, 1])
+sensitivity
+specificity
+```
+
+### f.
+
+The most common value for switch is 1 as mean of switch \> 0.5. The error rate would be $1-mean(switch) = 0.42$. The error rate using prediction values is around 0.4 in (c). The probability of giving false positives or false negatives is also around 0.4 as given in (e). The difference in error rate is not very large.
+
+```{r}
+print(mean(wells$switch))
+print(1-mean(wells$switch))
+```
+
+## Exercise 4
+
+### a-c.
+
+```{r}
+fit2 <- glm(switch ~ larsenic, family = binomial(link = "logit"), wells)
+fit3 <- glm(switch ~ zeduc, family = binomial(link = "logit"), wells)
+fit4 <- glm(switch ~ dist100 + larsenic + zeduc, family = binomial(link = "logit"), wells)
+```
+
+### d.
+
+```{r}
+library(modelsummary)
+fits <- list(fit1, fit2, fit3, fit4)
+modelsummary(fits, gof_omit = 'Log.Lik|R2 Adj.|AIC|BIC|F', fmt = 2, title = "Logistic Regression Results table", notes = "Note: This table summarises the estimates from the four logistic regressions. Standard errors are given in the parentheses", output = "gt")
+```
+
+## Exercise 5
+
+### a.
+
+```{r}
+# Repeat 2.b for fit2
+ggplot(wells, aes(larsenic, switch)) +
+  # stat_smooth() plots the predicted probabilities of switching given dist100
+  stat_smooth(method = "glm", method.args = list(family = 'binomial')) + 
+  geom_jitter(width = 0.5,
+              height = 0.1)
+```
+
+larsenic is a statistically significant predictor of switch as shown below. The sign of the coefficient is positive: this means the probability of switching increases as the arsenic level increases. This makes sense as the water is more damaging to human body, which incentivises people to switch.
+
+```{r}
+# repeat 2.c for fit2
+summary(fit2)
+```
+
+### b.
+
+```{r}
+# Repeat 2.b for fit3
+ggplot(wells, aes(zeduc, switch)) +
+  # stat_smooth() plots the predicted probabilities of switching given dist100
+  stat_smooth(method = "glm", method.args = list(family = 'binomial')) + 
+  geom_jitter(width = 0.5,
+              height = 0.1)
+```
+
+zeduc is a statiscally significant predictor of switch. The sign of the coefficient is positive. This means households with higher levels of education are more likely to switch. Intuitively, people with higher education are more likely to realise the damage of arsenic and hence are more likely to switch.
+
+```{r}
+# repeat 2.c for fit3
+summary(fit3)
+```
+
+### c.
+
+```{r}
+p_mean <- predict(fit4, newdata = data.frame(dist100 = mean(wells$dist100), larsenic = mean(wells$larsenic), zeduc = mean(wells$zeduc)), type = 'response')
+p_mean
+```
+
+If the distance to the closest safe well increases by 100 meters, switching probability would decrease by 24%. An 1% increase in the level of arsenic increases the probability of switching by about 0.22%. One standard deviation increase in education level would increase the switching probability by 4.2%. The marginal effect for an average household is close to the maximum marginal effect for all predictors. This means the intercept and weighted sum of mean predictors balance out to zero.
+
+```{r}
+marginal_effect_mean_dist100 <- coef(fit4)["dist100"] * p_mean * (1-p_mean)
+marginal_effect_mean_larsenic <- coef(fit4)["larsenic"] * p_mean * (1-p_mean)
+marginal_effect_mean_zeduc <- coef(fit4)["zeduc"] * p_mean * (1-p_mean)
+max_effect_fit4 <- c(coef(fit4)["dist100"], coef(fit4)["larsenic"], coef(fit4)["zeduc"])*0.25
+marginal_effect <- c(marginal_effect_mean_dist100,
+marginal_effect_mean_larsenic,
+marginal_effect_mean_zeduc)
+
+marginal_effect
+max_effect_fit4
+```
+
+## Exercise 6
+
+### a.
+
+```{r}
+wells <- wells |> 
+  mutate(p4 = predict(fit4, type = "response"),
+         pred4 = ifelse(p4 > 1/2, 1, 0))
+
+wells <- wells |> 
+  mutate(incorrect4 = ifelse(switch != pred4, 1, 0)) 
+
+wells|> 
+  summarise(error_rate4 = mean(incorrect4))
+
+```
+
+```{r}
+conf_matrix4 <- table(Actual = wells$switch, Predicted = wells$pred4)
+conf_matrix4
+```
+
+```{r}
+sensitivity4 <- (conf_matrix4[2,2])/(conf_matrix4[1, 2] + conf_matrix4[2, 2])
+specificity4 <- (conf_matrix4[1,1])/(conf_matrix4[1,1] + conf_matrix4[2, 1])
+sensitivity4
+specificity4
+```
+
+The most common value for switch is 1 as mean of switch \> 0.5. The error rate would be $1-mean(switch) = 0.42$. The error rate using prediction values of fit4 is around 0.37. The probability of giving false positives is around 0.35 or false negatives is around 0.4. Fit4 gives a lower error rate compared with the null model and fit1.
+
+```{r}
+# error rate by using the most common value
+print(1-mean(wells$switch))
+1-sensitivity4
+1-specificity4
+```
+
+### b.
+
+In terms of the overall error rate, fit4 is around 4% lower than fit1. For false positive rates, fit4 is around 5% lower than fit1. For false negatives, fit4 performs almost the same as fit1. Hence, fit4 performs better overall than fit1 and this is mainly because it has a lower rate for giving false positives.
+
+```{r}
+# in-sample predictive performance of fit1 and fit4
+# error rate
+error_rate1 <- mean(wells$incorrect)
+error_rate4 <- mean(wells$incorrect4)
+error_rate14 <- c(error_rate1, error_rate4)
+error_rate14
+
+```
+
+```{r}
+# false positive
+false_positive <- c(1-sensitivity, 1-sensitivity4)
+false_positive
+```
+
+```{r}
+# false negative
+false_negative <- c(1-specificity, 1-specificity4)
+false_negative
+```
